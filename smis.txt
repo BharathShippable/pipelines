@@ -1,2 +1,11 @@
-Master
+Stable
+Unstable
+v5.3.2
+v5.4.1
+v5.5.1
+v5.6.1
+v5.7.3
+v5.8.2
 v5.10.4
+v6.1.4
+Master
