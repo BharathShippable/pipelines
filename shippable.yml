@@ -1,12 +1,92 @@
+resources:
+  - name: smi_state
+    type: state
+
+  - name: defaults
+    type: params
+    version:
+      params:
+        subscriptionId: "583dc186d4d77b0f0021d73a"
+        apiUrl: "https://rcapi.shippable.com"
+        smi: "Master"
+        dynamicClusterType: 10000
+        secure: A6zo9CJH6u+6stlX6pYC9BNGqqXdOYBKXeASfQy+CDR140MRsLMUIBU4tMsJw/EM0By1UULeNcZMM34kJLCmwRG+mwPrKT+z1hiMctT4/85foTFKpu8ozXUP4naGq5NRWKT8PRk9m37xJbsJsj7rmx47yjpqH3yXggBgTrpDW9h+vLO2tmXAdt79Zl+bf+NLETx6OZRj1s4xe6nAnMt/sjXYyE7YPobchdjVu2Zw+rQVdTTvgdTcsJrO/gmU7qA1s/kNQe/f9muOoLVGTthI07z3+xkuMAWokji3i7uQHOvpMiIS29MGgVsHVhPV1iqJ+B0UF9lMhdOQTvnTH1RoJQ==
+
+  - name: pipelines_repo
+    type: gitRepo
+    integration: github
+    pointer:
+      sourceName: bharath92/pipelines
+      branch: master
+
 jobs:
-  - name: simple-runsh-u14
+  - name: start_smi_test
     type: runSh
     steps:
-    - TASK:
-        script: echo "Hello World!!!"
-  - name: rsync-in-runsh
+      - IN: defaults
+      - OUT: smi_state
+      - TASK:
+          - script: echo "starting SMI test with SMI $smi"
+          - script: shipctl put_resource_state smi_state smi $smi
+
+  - name: smi_test_trigger
     type: runSh
     steps:
-    - IN: pipelines_master
+      - IN: smi_state
+      - IN: start_smi_test
+      - IN: defaults
+      - IN: pipelines_repo
+      - OUT: smi_state
+      - TASK:
+          - script: pushd $(shipctl get_resource_state "pipelines_repo")
+          - script: ./updateClusterRuntimeTemplateId.sh
+          - script: popd
+          - script: shipctl put_resource_state smi_state triggerJobResourceId $RESOURCE_ID
+
+  - name: check_smi
+    type: runSh
+    steps:
+    - IN: smi_test_trigger
+    - IN: smi_state
     - TASK:
-        script: ls $PIPELINES_MASTER_PATH/syncRepo
+        - script: smi=$(shipctl get_resource_version_key smi_state "smi")
+        - script: Testing $smi SMI
+        - script: cat /etc/resolv.conf
+
+  - name: check_trigger_next_smi
+    type: runSh
+    steps:
+    - IN: smi_state
+    - IN: check_smi
+    - IN: pipelines_repo
+    - OUT: smi_state
+    - TASK:
+        - script: pushd $(shipctl get_resource_state "pipelines_repo")
+        - script: next_smi_name=""; next_smi="";
+        - script: current_smi=$(shipctl get_resource_version_key smi_state "smi")
+        - script: |
+            for smi in $(cat smis.txt); do
+              if [ "$next_smi" == "true" ]; then
+                next_smi_name=$smi
+                break;
+              fi;
+              if [ "$smi" == "$current_smi" ]; then
+                next_smi="true";
+              fi;
+            done
+        - script: shipctl put_resource_state smi_state "smi" "$next_smi_name";
+        - script: popd
+
+  - name: trigger_next_smi_test
+    type: runSh
+    steps:
+    - IN: check_trigger_next_smi
+    - IN: smi_state
+    - TASK:
+        - script: smi=$(shipctl get_resource_version_key smi_state "smi")
+        - script: |
+            if [ ! -z "$smi" ]; then
+              resource_id=$(shipctl get_resource_version_key smi_state "triggerJobResourceId")
+              echo $resource_id
+              curl -X POST $apiUrl/resources/"$resource_id"/triggerNewBuildRequest -H "Authorization: apiToken $apiToken" -H "content-type: application/json" -d "{}"
+            fi
