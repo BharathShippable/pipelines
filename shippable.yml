@@ -107,3 +107,134 @@ jobs:
               echo $resource_id
               curl -X POST "$apiUrl/resources/$resource_id/triggerNewBuildRequest" -H "Authorization: apiToken $apiToken" -H "content-type: application/json" -d "{}"
             fi
+
+  - name: wait_for_exit_test_success
+    type: runSh
+    runtime:
+      nodePool: u14custom
+    steps:
+    - TASK:
+        name: simple
+        script:
+          - ls
+    - TASK:
+        name: multi-simple
+        script: |
+            ls
+            pwd
+            true
+    - TASK:
+        name: multi-exit-0
+        script: |
+            ls
+            exit 0
+            pwd
+    - TASK:
+        name: exit-0->
+        script: >
+            exit 0
+    - TASK:
+        name: host_simple
+        runtime:
+          container: false
+        script:
+          - ls
+    - TASK:
+        name: host_multi-simple
+        runtime:
+          container: false
+        script: |
+            ls
+            pwd
+            true
+    - TASK:
+        name: host_multi-exit-0
+        runtime:
+          container: false
+        script: |
+            ls
+            exit 0
+            pwd
+    - TASK:
+        name: host_exit-0->
+        runtime:
+          container: false
+        script: >
+            exit 0
+
+  - name: wait_for_exit_test_fail1
+    type: runSh
+    runtime:
+      nodePool: u14custom
+    steps:
+    - IN: wait_for_exit_test_success
+    - TASK:
+        name: host_exit-1
+        runtime:
+          container: false
+        script: >
+            exit 1
+
+  - name: wait_for_exit_test_fail2
+    type: runSh
+    runtime:
+      nodePool: u14custom
+    steps:
+    - IN: wait_for_exit_test_success
+    - TASK:
+        name: wrong_command
+        script: sl
+
+  - name: wait_for_exit_test_fail3
+    type: runSh
+    runtime:
+      nodePool: u14custom
+    steps:
+    - IN: wait_for_exit_test_success
+    - TASK:
+        name: multi-line-fail
+        script: |
+            ls
+            sl
+            pwd
+
+  - name: wait_for_exit_test_fail4
+    type: runSh
+    runtime:
+      nodePool: u14custom
+    steps:
+    - IN: wait_for_exit_test_success
+    - TASK:
+        name: multi-line-fail
+        script: exit -1
+
+  - name: rancher_poc
+    type: runSh
+    runtime:
+      nodePool: u14custom
+    steps:
+    - TASK:
+        name: rancher_container
+        runtime:
+          container: true
+          options:
+            imageName: drydock/microbase
+            imageTag: master
+            options: --net=host --privileged=true --init
+        script:
+          - az --version
+          - sleep 10
+    # - TASK:
+    #     name: rancher_host_exit_0
+    #     runtime:
+    #       container: false
+    #     script:
+    #       - exit 0
+    - TASK:
+        name: fail
+        runtime:
+          container: false
+        script: |
+          pwd
+          ls
+          sleep 10
