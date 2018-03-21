@@ -3,6 +3,12 @@ resources:
     type: integration
     integration: bharath-us-east-1
 
+  - name: aws_ec2
+    type: cliConfig
+    integration: aws_ec2
+    pointer:
+      region: us-east-1
+
 jobs:
   - name: run_aws_instance
     type: runSh
@@ -10,6 +16,9 @@ jobs:
       - IN: bharath_us_east_1
       - IN: pipelines_repo
         switch: off
+      - IN: aws_ec2
+        scopes:
+          ec2
       - TASK:
           - script: pushd $(shipctl get_resource_state "pipelines_repo") && git checkout scripts
           - script: ./startStopAwsInstances.sh run
