@@ -12,5 +12,5 @@ jobs:
         switch: off
       - TASK:
           - script: pushd $(shipctl get_resource_state "pipelines_repo") && git checkout scripts
-          - script: ./startStopAwsInstances.sh
+          - script: ./startStopAwsInstances.sh run
           - script: popd
