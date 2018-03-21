@@ -1,5 +1,5 @@
 resources:
-  - name: bharath-us-east-1
+  - name: bharath_us_east_1
     type: integration
     integration: bharath-us-east-1
 
@@ -7,7 +7,7 @@ jobs:
   - name: run_aws_instance
     type: runSh
     steps:
-      - IN: bharath-us-east-1
+      - IN: bharath_us_east_1
       - IN: pipelines_repo
         switch: off
       - TASK:
