@@ -1,19 +1,34 @@
 resources:
-  - name: bharath_us_east_1
-    type: integration
-    integration: bharath-us-east-1
-
   - name: aws_ec2
     type: cliConfig
     integration: aws_ec2
     pointer:
       region: us-east-1
 
+  - name: ami_state
+    type: state
+
 jobs:
   - name: run_aws_instance
     type: runSh
     steps:
-      - IN: bharath_us_east_1
+      - IN: pipelines_repo
+        switch: off
+      - IN: aws_ec2
+        scopes:
+          ec2
+      - OUT: ami_state
+      - TASK:
+          - script: pushd $(shipctl get_resource_state "pipelines_repo") && git checkout scripts
+          - script: ./startStopAwsInstances.sh run
+          - script: popd
+
+  - name: terminate_aws_instace
+    type: runSh
+    steps:
+      - IN: run_aws_instance
+        switch: off
+      - IN: ami_state
       - IN: pipelines_repo
         switch: off
       - IN: aws_ec2
@@ -21,5 +36,5 @@ jobs:
           ec2
       - TASK:
           - script: pushd $(shipctl get_resource_state "pipelines_repo") && git checkout scripts
-          - script: ./startStopAwsInstances.sh run
+          - script: ./startStopAwsInstances.sh terminate
           - script: popd
