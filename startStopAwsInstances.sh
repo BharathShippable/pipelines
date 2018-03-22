@@ -22,7 +22,7 @@ run_instance() {
   echo "-----------------------------------"
 
   local aws_run_instances_result=$(aws ec2 run-instances --image-id "$AMI_ID" --count "$COUNT" --instance-type "$INSTANCE_TYPE" --key-name "$KEY_NAME")
-  local aws_instance_id=$(jq -r '.Instances | .[0] | .InstanceId')
+  local aws_instance_id=$(echo $aws_run_instances_result | jq -r '.Instances | .[0] | .InstanceId')
 
   shipctl put_resource_state $AMI_STATE aws_instance_id $aws_instance_id
 
