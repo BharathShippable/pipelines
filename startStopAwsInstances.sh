@@ -31,12 +31,35 @@ run_instance() {
 }
 
 terminate_instance() {
-  echo "Terminating instance"
+  local aws_instance_id="$1"
+  echo "Terminating instance: $aws_instance_id"
   echo "-----------------------------------"
 
-  local aws_run_instances_result=$(aws ec2 terminate-instances --instance-ids $aws_instance_id)
+  aws ec2 terminate-instances --instance-ids $aws_instance_id
 
   echo "Terminated instance: $aws_instance_id"
+  echo "-----------------------------------"
+}
+
+start_instance() {
+  local aws_instance_id="$1"
+  echo "Starting instance: $aws_instance_id"
+  echo "-----------------------------------"
+
+  aws ec2 start-instances --instance-ids $aws_instance_id
+
+  echo "Started instance: $aws_instance_id"
+  echo "-----------------------------------"
+}
+
+stop_instance() {
+  local aws_instance_id="$1"
+  echo "Stopping instance: $aws_instance_id"
+  echo "-----------------------------------"
+
+  aws ec2 stop-instances --instance-ids $aws_instance_id
+
+  echo "Stopped instance: $aws_instance_id"
   echo "-----------------------------------"
 }
 
@@ -50,7 +73,13 @@ main() {
       run_instance
     elif [ "$ACTION" == "terminate" ]; then
       local aws_instance_id=$(shipctl get_resource_version_key $AMI_STATE "aws_instance_id")
-      terminate_instance
+      terminate_instance $aws_instance_id
+    elif [ "$ACTION" == "start" ]; then
+      local aws_instance_id=$(shipctl get_resource_version_key $AMI_STATE "aws_instance_id")
+      start_instance $aws_instance_id
+    elif [ "$ACTION" == "stop" ]; then
+      local aws_instance_id=$(shipctl get_resource_version_key $AMI_STATE "aws_instance_id")
+      stop_instance $aws_instance_id
     else
       echo "Unknown ACTION: $ACTION"
     fi
