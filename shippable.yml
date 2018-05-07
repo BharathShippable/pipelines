@@ -25,8 +25,8 @@ jobs:
       - IN: docker_img_test_repo
       - OUT: docker_test_img
       - TASK:
-          - script: pushd $(shipctl get_resource_state "pipelines_repo") && git checkout test
-          - script: docker build -t=bharath92/test:master
+          - script: pushd $(shipctl get_resource_state "docker_img_test_repo") && git checkout test
+          - script: docker build -t=bharath92/test:master .
           - script: docker push bharath92/test:master
 
   - name: rel
@@ -45,7 +45,7 @@ jobs:
       switch: off
     - TASK:
         - script: export SSH_PATH=git@github.com:bharath92/pipelines.git
-        - script: pushd $(shipctl get_resource_state "pipelines_repo") && git checkout test
+        - script: pushd $(shipctl get_resource_state "docker_img_test_repo") && git checkout test
         - script: touch $(uuidgen)
         - script: git add . && git commit -m "adding test file"
         - script: git remote add up $SSH_PATH
