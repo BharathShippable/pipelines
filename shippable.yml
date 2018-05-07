@@ -11,6 +11,14 @@ resources:
     seed:
       versionName: master
 
+  - name: docker_test_img_2
+    type: image
+    integration: docker
+    pointer:
+      sourceName: "bharath92/test2"
+    seed:
+      versionName: master
+
   - name: docker_img_test_repo
     type: gitRepo
     integration: github
@@ -35,6 +43,25 @@ jobs:
           - script: apt-get install -y uuid-runtime
           - script: |
                     shipctl post_resource_state_multi "docker_test_img" "versionName=$(uuidgen) \
+                    IMG_REPO_COMMIT_SHA=$(uuidgen) \
+                    BUILD_NUMBER=$BUILD_NUMBER"
+
+  - name: create_docker_img_2
+    type: runSh
+    triggerMode: parallel
+    dependencyMode: strict
+    steps:
+      - IN: docker_cli
+        switch: off
+      - IN: docker_img_test_repo
+      - OUT: docker_test_img_2
+      - TASK:
+          - script: pushd $(shipctl get_resource_state "docker_img_test_repo") && git checkout test
+          - script: docker build -t=bharath92/test2:master .
+          - script: docker push bharath92/test2:master
+          - script: apt-get install -y uuid-runtime
+          - script: |
+                    shipctl post_resource_state_multi "docker_test_img_2" "versionName=$(uuidgen) \
                     IMG_REPO_COMMIT_SHA=$(uuidgen) \
                     BUILD_NUMBER=$BUILD_NUMBER"
 
@@ -74,7 +101,12 @@ jobs:
       switch: off
     - IN: docker_test_img
       switch: off
+    - IN: docker_test_img_2
+      switch: off
     - TASK:
         - script: docker pull bharath92/test:master
         - script: docker tag bharath92/test:master bharath92/test:test
         - script: docker push bharath92/test:test
+        - script: docker pull bharath92/test2:master
+        - script: docker tag bharath92/test2:master bharath92/test2:test
+        - script: docker push bharath92/test2:test
