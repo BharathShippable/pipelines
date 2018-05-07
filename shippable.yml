@@ -32,6 +32,11 @@ jobs:
           - script: pushd $(shipctl get_resource_state "docker_img_test_repo") && git checkout test
           - script: docker build -t=bharath92/test:master .
           - script: docker push bharath92/test:master
+          - script: apt-get install -y uuid-runtime
+          - script: |
+                    shipctl post_resource_state_multi "docker_test_img" "versionName=$(uuidgen) \
+                    IMG_REPO_COMMIT_SHA=$(uuidgen) \
+                    BUILD_NUMBER=$BUILD_NUMBER"
 
   - name: rel
     type: runSh
