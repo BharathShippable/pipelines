@@ -21,7 +21,11 @@ resources:
 jobs:
   - name: create_docker_img
     type: runSh
+    triggerMode: parallel
+    dependencyMode: strict
     steps:
+      - IN: docker_cli
+        switch: off
       - IN: docker_img_test_repo
       - OUT: docker_test_img
       - TASK:
@@ -39,6 +43,8 @@ jobs:
 
   - name: commit_to_test_branch
     type: runSh
+    triggerMode: parallel
+    dependencyMode: strict
     steps:
     - IN: rel
     - IN: docker_img_test_repo
@@ -53,8 +59,12 @@ jobs:
 
   - name: tag_img
     type: runSh
+    triggerMode: parallel
+    dependencyMode: strict
     steps:
     - IN: commit_to_test_branch
+    - IN: docker_cli
+      switch: off
     - IN: docker_test_img
       switch: off
     - TASK:
