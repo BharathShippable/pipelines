@@ -67,8 +67,12 @@ jobs:
 
   - name: rel
     type: runSh
+    triggerMode: parallel
+    dependencyMode: strict
     steps:
       - IN: create_docker_img
+        switch: off
+      - IN: create_docker_img_2
         switch: off
       - TASK:
           - script: echo "rel"
