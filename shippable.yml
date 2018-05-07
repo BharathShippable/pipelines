@@ -50,7 +50,7 @@ jobs:
     - IN: docker_img_test_repo
       switch: off
     - TASK:
-        - script: export SSH_PATH=git@github.com:bharath92/pipelines.git
+        - script: export SSH_PATH=git@github.com:Bharath92/pipelines.git
         - script: pushd $(shipctl get_resource_state "docker_img_test_repo") && git checkout test
         - script: echo lol
         - script: apt-get install -y uuid-runtime
