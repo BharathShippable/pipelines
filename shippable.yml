@@ -52,6 +52,7 @@ jobs:
     - TASK:
         - script: export SSH_PATH=git@github.com:bharath92/pipelines.git
         - script: pushd $(shipctl get_resource_state "docker_img_test_repo") && git checkout test
+        - script: apt-get install -y uuid-runtime
         - script: touch $(uuidgen)
         - script: git add . && git commit -m "adding test file"
         - script: git remote add up $SSH_PATH
