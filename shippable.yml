@@ -1,254 +1,63 @@
 resources:
-  - name: smi_state
-    type: state
+  - name: docker_cli
+    type: cliConfig
+    integration: docker
 
-  - name: defaults
-    type: params
-    version:
-      params:
-        subscriptionId: "583dc186d4d77b0f0021d73a"
-        apiUrl: "https://rcapi.shippable.com"
-        smi: "Stable"
-        dynamicClusterType: 10000
-        secure: A6zo9CJH6u+6stlX6pYC9BNGqqXdOYBKXeASfQy+CDR140MRsLMUIBU4tMsJw/EM0By1UULeNcZMM34kJLCmwRG+mwPrKT+z1hiMctT4/85foTFKpu8ozXUP4naGq5NRWKT8PRk9m37xJbsJsj7rmx47yjpqH3yXggBgTrpDW9h+vLO2tmXAdt79Zl+bf+NLETx6OZRj1s4xe6nAnMt/sjXYyE7YPobchdjVu2Zw+rQVdTTvgdTcsJrO/gmU7qA1s/kNQe/f9muOoLVGTthI07z3+xkuMAWokji3i7uQHOvpMiIS29MGgVsHVhPV1iqJ+B0UF9lMhdOQTvnTH1RoJQ==
+  - name: docker_test_img
+    type: image
+    integration: docker
+    pointer:
+      sourceName: "bharath92/test"
+    seed:
+      versionName: master
 
-  - name: pipelines_repo
+  - name: docker_img_test_repo
     type: gitRepo
     integration: github
     pointer:
       sourceName: bharath92/pipelines
-      branch: scripts
+      branch: test
 
 jobs:
-  - name: start_smi_test
+  - name: create_docker_img
     type: runSh
     steps:
-      - IN: defaults
-      - OUT: smi_state
+      - IN: docker_img_test_repo
+      - OUT: docker_test_img
       - TASK:
-          - script: echo "starting SMI test with SMI $smi"
-          - script: shipctl put_resource_state smi_state smi $smi
+          - script: pushd $(shipctl get_resource_state "pipelines_repo") && git checkout test
+          - script: docker build -t=bharath92/test:master
+          - script: docker push bharath92/test:master
 
-  - name: smi_test_trigger
+  - name: rel
     type: runSh
     steps:
-      - IN: smi_state
-      - IN: start_smi_test
-      - IN: defaults
-      - IN: pipelines_repo
+      - IN: create_docker_img
         switch: off
-      - OUT: smi_state
       - TASK:
-          - script: pushd $(shipctl get_resource_state "pipelines_repo") && git checkout scripts
-          - script: ./updateClusterRuntimeTemplateId.sh
-          - script: popd
-          - script: shipctl put_resource_state smi_state triggerJobResourceId $RESOURCE_ID
+          - script: echo "rel"
 
-  - name: check_smi
+  - name: commit_to_test_branch
     type: runSh
     steps:
-    - IN: smi_test_trigger
-    - IN: smi_state
-    - TASK:
-        name: Host
-        runtime:
-          container: false
-        script:
-          - smi=$(shipctl get_resource_version_key smi_state "smi")
-          - echo "Testing host build on $smi SMI"
-          - cat /etc/resolv.conf
-          - cat /etc/dhcp/dhclient.conf
-          - cat /etc/default/docker
-          - docker images
-          - df -h
-          - printenv
-    - TASK:
-        name: Container
-        script:
-          - smi=$(shipctl get_resource_version_key smi_state "smi")
-          - echo "Testing container build on $smi SMI"
-          - cat /etc/resolv.conf
-          - docker images
-          - df -h
-    on_success:
-      - script: shipctl put_resource_state check_smi versionName "$smi"
-
-  - name: check_trigger_next_smi
-    type: runSh
-    steps:
-    - IN: smi_state
-    - IN: check_smi
-    - IN: pipelines_repo
+    - IN: rel
+    - IN: docker_img_test_repo
       switch: off
-    - OUT: smi_state
     - TASK:
-        - script: pushd $(shipctl get_resource_state "pipelines_repo") && git checkout scripts
-        - script: next_smi_name=""; next_smi="";
-        - script: current_smi=$(shipctl get_resource_version_key smi_state "smi")
-        - script: |
-            for smi in $(cat smis.txt); do
-              if [ "$next_smi" == "true" ]; then
-                next_smi_name=$smi
-                break;
-              fi;
-              if [ "$smi" == "$current_smi" ]; then
-                next_smi="true";
-              fi;
-            done
-        - script: shipctl put_resource_state smi_state "smi" "$next_smi_name";
-        - script: popd
+        - script: export SSH_PATH=git@github.com:bharath92/pipelines.git
+        - script: pushd $(shipctl get_resource_state "pipelines_repo") && git checkout test
+        - script: touch $(uuidgen)
+        - script: git add . && git commit -m "adding test file"
+        - script: git remote add up $SSH_PATH
+        - script: git push up test
 
-  - name: trigger_next_smi_test
+  - name: tag_img
     type: runSh
     steps:
-    - IN: check_trigger_next_smi
-    - IN: smi_state
-    - IN: defaults
+    - IN: commit_to_test_branch
+    - IN: docker_test_img
+      switch: off
     - TASK:
-        - script: smi=$(shipctl get_resource_version_key smi_state "smi")
-        - script: |
-            if [ ! -z "$smi" ]; then
-              resource_id=$(shipctl get_resource_version_key smi_state "triggerJobResourceId")
-              echo $resource_id
-              curl -X POST "$apiUrl/resources/$resource_id/triggerNewBuildRequest" -H "Authorization: apiToken $apiToken" -H "content-type: application/json" -d "{}"
-            fi
-
-  - name: wait_for_exit_test_success
-    type: runSh
-    steps:
-    - TASK:
-        name: simple
-        script:
-          - ls
-    - TASK:
-        name: multi-simple
-        script: |
-            ls
-            pwd
-            true
-    - TASK:
-        name: multi-exit-0
-        script: |
-            ls
-            exit 0
-            pwd
-    - TASK:
-        name: exit-0->
-        script: >
-            exit 0
-    - TASK:
-        name: host_simple
-        runtime:
-          container: false
-        script:
-          - ls
-    - TASK:
-        name: host_multi-simple
-        runtime:
-          container: false
-        script: |
-            ls
-            pwd
-            true
-    - TASK:
-        name: host_multi-exit-0
-        runtime:
-          container: false
-        script: |
-            ls
-            exit 0
-            pwd
-    - TASK:
-        name: host_exit-0->
-        runtime:
-          container: false
-        script: >
-            exit 0
-
-  - name: wait_for_exit_test_fail1
-    type: runSh
-    steps:
-    - IN: wait_for_exit_test_success
-    - TASK:
-        name: host_exit-1
-        runtime:
-          container: false
-        script: >
-            exit 1
-
-  - name: wait_for_exit_test_fail2
-    type: runSh
-    steps:
-    - IN: wait_for_exit_test_success
-    - TASK:
-        name: wrong_command
-        script: sl
-
-  - name: wait_for_exit_test_fail3
-    type: runSh
-    steps:
-    - IN: wait_for_exit_test_success
-    - TASK:
-        name: multi-line-fail
-        script: |
-            ls
-            sl
-            pwd
-
-  - name: wait_for_exit_test_fail4
-    type: runSh
-    steps:
-    - IN: wait_for_exit_test_success
-    - TASK:
-        name: multi-line-fail
-        script: exit -1
-
-  - name: rancher_poc
-    type: runSh
-    steps:
-    - TASK:
-        name: rancher_container
-        runtime:
-          container: true
-          options:
-            imageName: drydock/microbase
-            imageTag: master
-            options: --net=host --privileged=true --init
-        script:
-          - az --version
-          - sleep 10
-    # - TASK:
-    #     name: rancher_host_exit_0
-    #     runtime:
-    #       container: false
-    #     script:
-    #       - exit 0
-    - TASK:
-        name: fail
-        runtime:
-          container: false
-        script: |
-          pwd
-          ls
-          sleep 10
-
-  - name: openssl_tester
-    type: runSh
-    runtime:
-      nodePool: u16custom
-    steps:
-    - TASK:
-        name: openssl custom image
-        runtime:
-          container: true
-          options:
-            imageName: gvancuts/clearlinux-acrn-build
-            imageTag: latest
-        script:
-          - openssl version
-    - TASK:
-        name: openssl default image
-        runtime:
-          container: true
-        script:
-          - openssl version
+        - script: docker pull bharath92/test:master
+        - script: docker tag bharath92/test:master bharath92/test:test
+        - script: docker push bharath92/test:test
