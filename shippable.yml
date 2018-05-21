@@ -114,3 +114,27 @@ jobs:
         - script: docker pull bharath92/test2:master
         - script: docker tag bharath92/test2:master bharath92/test2:test
         - script: docker push bharath92/test2:test
+
+  - name: c7_job
+    type: runSh
+    runtime:
+      nodePool: c7_custom_build_pool
+    steps:
+    - TASK:
+        - script: df -h
+
+  - name: u14_job
+    type: runSh
+    runtime:
+      nodePool: u14_custom_build_pool
+    steps:
+    - TASK:
+        - script: df -h
+
+  - name: u16_job
+    type: runSh
+    runtime:
+      nodePool: u16_custom_build_pool
+    steps:
+    - TASK:
+        - script: df -h
