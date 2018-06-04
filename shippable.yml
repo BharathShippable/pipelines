@@ -145,6 +145,12 @@ jobs:
       nodePool: windoge
     steps:
     - TASK:
-        - script: $disk = Get-WmiObject Win32_LogicalDisk -ComputerName remotecomputer -Filter "DeviceID='C:'" | Select-Object Size,FreeSpace
-        - script: $disk.Size
-        - script: $disk.FreeSpace
+        runtime:
+          container: false
+        script:
+          - node -v
+    - TASK:
+        runtime:
+          container: true
+        script:
+          - node -v
