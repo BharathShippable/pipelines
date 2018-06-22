@@ -665,6 +665,8 @@ jobs:
 
   - name: default_nodepool_test
     type: runSh
+    runtime:
+      nodePool: aarch32_nodepool
     steps:
     - TASK:
         runtime:
